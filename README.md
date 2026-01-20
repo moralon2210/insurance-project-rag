@@ -1,8 +1,8 @@
 # Hebrew Health Insurance RAG System
 
-A RAG (Retrieval-Augmented Generation) system designed to **query and answer questions about Hebrew health insurance papers**.
+A RAG (Retrieval-Augmented Generation) system that lets you **ask questions about your private health insurance policy in natural language**.
 
-This system processes complex Hebrew insurance documents (policies, coverage details, terms) and makes them searchable through a question-answering interface.
+Get instant answers about your coverage, reimbursements, and terms - simply upload your Hebrew insurance documents and ask questions like "Is this treatment covered?" or "How much reimbursement will I get?"
 
 ## Project Structure
 
@@ -79,19 +79,21 @@ for doc in documents:
 
 ## How It Works
 
-This system is built specifically for querying health insurance documents:
+This system helps you understand your private health insurance policy:
 
 1. **PDF Parsing**: Extracts text from Hebrew insurance PDFs using character-level extraction to handle complex formatting
 2. **Table Conversion**: Identifies and converts tables (coverage amounts, terms, conditions) to Markdown
 3. **Text Chunking**: Splits content into semantic chunks optimized for Hebrew text
 4. **Ready for RAG**: Produces LangChain documents ready for embedding and vector storage
-5. **Query Interface**: (Coming soon) Natural language questions about coverage, terms, and conditions
+5. **Query Interface**: (Coming soon) Ask questions in natural language and get instant answers
 
-### Use Cases
+### What You Can Ask
 
-- "What is covered under policy 552?"
-- "What are the deductibles for specialized medications?"
-- "Is treatment X covered?"
-- "What are the exclusions in this policy?"
+- **Coverage Questions**: "Is dental implant treatment covered in my policy?"
+- **Reimbursement Details**: "How much reimbursement do I get for physiotherapy sessions?"
+- **Exclusions**: "Are cosmetic procedures excluded from coverage?"
+- **Specialist Care**: "Do I need pre-approval for this specialist treatment abroad?"
+
+The system analyzes your actual insurance documents to provide personalized answers based on your specific policy terms and coverage.
 
 
