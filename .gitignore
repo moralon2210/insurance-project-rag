@@ -24,6 +24,9 @@ build/
 # Data files (PDFs can be large)
 data/pdfs/*.pdf
 
+# Vector database (generated, can be large)
+data/chroma_db/
+
 # OS
 .DS_Store
 Thumbs.db

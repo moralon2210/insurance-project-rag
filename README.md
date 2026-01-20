@@ -9,17 +9,19 @@ Get instant answers about your coverage, reimbursements, and terms - simply uplo
 ```
 project/
 ├── src/
-│   └── parser/
-│       ├── __init__.py          # Module exports
-│       ├── pdf_parser.py        # Unified PDF extraction with table support
-│       ├── text_splitter.py     # Hebrew-optimized text chunking
-│       └── processor.py         # Document processing orchestrator
+│   ├── parser/
+│   │   ├── __init__.py          # Module exports
+│   │   ├── pdf_parser.py        # Unified PDF extraction with table support
+│   │   ├── text_splitter.py     # Hebrew-optimized text chunking
+│   │   └── processor.py         # Document processing orchestrator
+│   └── vectordb.py              # Vector database with local embeddings
 ├── tests/
 │   ├── __init__.py
 │   ├── test_parser.py           # Full test with interactive mode
 │   └── test_parser_simple.py    # Quick test script
 ├── data/
-│   └── pdfs/                    # Place your PDF files here
+│   ├── pdfs/                    # Place your PDF files here
+│   └── chroma_db/               # Vector database storage (auto-created)
 ├── rag.py                       # Main RAG orchestration file
 ├── requirements.txt
 └── README.md
@@ -35,11 +37,18 @@ pip install -r requirements.txt
 
 ### Quick Start
 
-1. **Add a PDF file** to the `data/pdfs/` directory
+1. **Add PDF files** to the `data/pdfs/` directory
 
 2. **Run the main RAG system**:
 ```bash
+# First run - builds the database
 python rag.py
+
+# Subsequent runs - uses existing database
+python rag.py
+
+# Force rebuild - clears and rebuilds database
+python rag.py --reset
 ```
 
 Or run the test scripts:
@@ -56,16 +65,24 @@ python -m tests.test_parser
 ```python
 from rag import InsuranceRAG
 
-# Initialize and load documents
+# Initialize the RAG system
 rag = InsuranceRAG(pdf_directory="data/pdfs")
-documents = rag.load_documents()
+
+# Clear and rebuild database (optional)
+rag.vectordb.clear()
+
+# Load and embed documents
+rag.load_documents()
+rag.embed_and_store()
+
+# Search for similar documents
+results = rag.search("האם יש כיסוי להשתלות בחו\"ל?", k=5)
+for doc in results:
+    print(f"Page {doc.metadata['page']}: {doc.page_content[:100]}...")
 
 # Get statistics
 stats = rag.get_stats()
-print(f"Loaded {stats['total_chunks']} chunks from {stats['sources']} sources")
-
-# Get documents ready for embedding
-docs_for_embedding = rag.prepare_for_embedding()
+print(f"Total: {stats['total_chunks']} chunks from {stats['sources']} sources")
 ```
 
 ### Using the Processor Directly
@@ -97,6 +114,8 @@ for doc in documents:
 - **Table Extraction**: Converts PDF tables to Markdown format for better LLM comprehension  
 - **Deduplication**: Smart handling of PDFs with bold-effect character duplication
 - **Optimized Chunking**: Hebrew-appropriate chunk sizes and separators
+- **Local Embeddings**: Multilingual sentence-transformers model running entirely on CPU
+- **Vector Database**: ChromaDB for persistent local storage with semantic search
 - **Metadata Preservation**: Keeps track of source file and page numbers
 
 ## How It Works
@@ -106,8 +125,9 @@ This system helps you understand your private health insurance policy:
 1. **PDF Parsing**: Extracts text from Hebrew insurance PDFs using character-level extraction to handle complex formatting
 2. **Table Conversion**: Identifies and converts tables (coverage amounts, terms, conditions) to Markdown
 3. **Text Chunking**: Splits content into semantic chunks optimized for Hebrew text
-4. **Ready for RAG**: Produces LangChain documents ready for embedding and vector storage
-5. **Query Interface**: (Coming soon) Ask questions in natural language and get instant answers
+4. **Embedding**: Converts chunks to vectors using a multilingual model (supports Hebrew)
+5. **Vector Storage**: Stores embeddings in ChromaDB for fast semantic search
+6. **Semantic Search**: Query in natural language and get relevant document chunks
 
 ### What You Can Ask
 

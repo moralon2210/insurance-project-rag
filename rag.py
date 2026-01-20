@@ -57,16 +57,10 @@ class InsuranceRAG:
     def embed_and_store(self) -> int:
         """
         Embed documents and store in the vector database.
-        Skips if documents are already stored.
 
         Returns:
             Number of documents stored
         """
-        if self.vectordb.exists():
-            count = self.vectordb.count()
-            print(f"✓ Vector store already has {count} documents")
-            return count
-
         if not self.documents:
             print("No documents to embed. Run load_documents() first.")
             return 0
@@ -120,22 +114,44 @@ class InsuranceRAG:
 def main():
     """
     Main execution function - demonstrates the RAG pipeline.
+    
+    Usage:
+        python rag.py           # Use existing DB if available
+        python rag.py --reset   # Clear and rebuild database
     """
+    import sys
+    
     rag = InsuranceRAG()
     
-    # Load and process documents
-    rag.load_documents()
+    # Check for reset flag or if DB doesn't exist
+    force_reset = "--reset" in sys.argv
     
-    # Embed and store
-    rag.embed_and_store()
-    
-    # Show statistics
-    stats = rag.get_stats()
-    print(f"\nStatistics:")
-    print(f"  Sources: {stats['sources']}")
-    print(f"  Text chunks: {stats['text_chunks']}")
-    print(f"  Table chunks: {stats['table_chunks']}")
-    print(f"  Stored in DB: {stats['stored_in_db']}")
+    if force_reset or not rag.vectordb.exists():
+        if force_reset:
+            print("🔄 Resetting database...")
+        else:
+            print("📦 Building database from scratch...")
+        
+        # Clear existing data
+        rag.vectordb.clear()
+        
+        # Load and process documents
+        rag.load_documents()
+        
+        # Embed and store
+        rag.embed_and_store()
+        
+        # Show statistics
+        stats = rag.get_stats()
+        print(f"\nStatistics:")
+        print(f"  Sources: {stats['sources']}")
+        print(f"  Text chunks: {stats['text_chunks']}")
+        print(f"  Table chunks: {stats['table_chunks']}")
+        print(f"  Stored in DB: {stats['stored_in_db']}")
+    else:
+        count = rag.vectordb.count()
+        print(f"✓ Database already exists with {count} documents")
+        print(f"  Use 'python rag.py --reset' to rebuild")
 
 
 if __name__ == "__main__":
