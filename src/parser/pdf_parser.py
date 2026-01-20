@@ -7,6 +7,7 @@ for better LLM comprehension in RAG pipelines.
 
 import pdfplumber
 import os
+import re
 from typing import List, Dict, Any, Optional
 
 
@@ -307,8 +308,6 @@ class PDFParser:
         """
         if not text:
             return text
-        
-        import re
         
         # Deduplicate Hebrew characters (2+ repeats -> single)
         # Only applies to Hebrew Unicode range to preserve numbers like "000"

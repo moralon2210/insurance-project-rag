@@ -20,6 +20,7 @@ project/
 │   └── test_parser_simple.py    # Quick test script
 ├── data/
 │   └── pdfs/                    # Place your PDF files here
+├── rag.py                       # Main RAG orchestration file
 ├── requirements.txt
 └── README.md
 ```
@@ -36,7 +37,12 @@ pip install -r requirements.txt
 
 1. **Add a PDF file** to the `data/pdfs/` directory
 
-2. **Run the test script**:
+2. **Run the main RAG system**:
+```bash
+python rag.py
+```
+
+Or run the test scripts:
 ```bash
 # Simple test - shows first 2 chunks
 python -m tests.test_parser_simple
@@ -45,7 +51,24 @@ python -m tests.test_parser_simple
 python -m tests.test_parser
 ```
 
-### In Your Code
+### Using the RAG System
+
+```python
+from rag import InsuranceRAG
+
+# Initialize and load documents
+rag = InsuranceRAG(pdf_directory="data/pdfs")
+documents = rag.load_documents()
+
+# Get statistics
+stats = rag.get_stats()
+print(f"Loaded {stats['total_chunks']} chunks from {stats['sources']} sources")
+
+# Get documents ready for embedding
+docs_for_embedding = rag.prepare_for_embedding()
+```
+
+### Using the Processor Directly
 
 ```python
 from src.parser import DocumentProcessor
@@ -53,8 +76,7 @@ from src.parser import DocumentProcessor
 # Initialize processor
 processor = DocumentProcessor(
     chunk_size=600,
-    chunk_overlap=120,
-    table_aware=False  # Set True to keep table rows together
+    chunk_overlap=120
 )
 
 # Process all PDFs in a directory

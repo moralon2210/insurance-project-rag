@@ -6,6 +6,11 @@ langchain==0.3.21
 langchain-core==0.3.45
 langchain-community==0.3.18
 langchain-text-splitters==0.3.7
+langchain-huggingface==0.0.3
+
+# Embeddings & Vector Store
+sentence-transformers==2.6.1
+chromadb==0.4.24
 
 # Environment Configuration
 python-dotenv==1.0.1

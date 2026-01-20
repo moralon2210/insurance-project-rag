@@ -9,7 +9,7 @@ import os
 
 def main():
     # Find first PDF
-    pdf_dir = r'data\pdfs'
+    pdf_dir = os.path.join('data', 'pdfs')
     pdf_files = [f for f in os.listdir(pdf_dir) if f.endswith('.pdf')]
     
     if not pdf_files:

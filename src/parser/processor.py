@@ -218,7 +218,6 @@ class DocumentProcessor:
                     pdf_files.append(os.path.join(root, file))
 
         if not pdf_files:
-            print(f"No PDF files found in {directory_path}")
             return []
 
         return self.process_files(pdf_files)

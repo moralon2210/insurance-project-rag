@@ -1,0 +1,142 @@
+"""
+Hebrew Health Insurance RAG System
+Main orchestration file for the RAG pipeline.
+"""
+
+from typing import List, Optional
+from langchain_core.documents import Document
+
+from src.parser import DocumentProcessor
+from src.vectordb import VectorDB
+
+
+class InsuranceRAG:
+    """
+    Main RAG system orchestrator for Hebrew health insurance documents.
+    """
+
+    def __init__(
+        self,
+        pdf_directory: str = "data/pdfs",
+        chunk_size: int = 600,
+        chunk_overlap: int = 120,
+        persist_directory: str = "data/chroma_db"
+    ):
+        """
+        Initialize the RAG system.
+
+        Args:
+            pdf_directory: Directory containing PDF files
+            chunk_size: Maximum chunk size in characters
+            chunk_overlap: Overlap between chunks
+            persist_directory: Directory to persist the vector database
+        """
+        self.pdf_directory = pdf_directory
+        self.processor = DocumentProcessor(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap
+        )
+        self.vectordb = VectorDB(persist_directory=persist_directory)
+        self.documents: List[Document] = []
+
+    def load_documents(self) -> List[Document]:
+        """
+        Load and process all PDF documents from the configured directory.
+
+        Returns:
+            List of processed LangChain Document objects
+        """
+        print(f"Loading documents from {self.pdf_directory}...")
+        self.documents = self.processor.process_directory(self.pdf_directory)
+        
+        if self.documents:
+            print(f"✓ Loaded {len(self.documents)} chunks")
+        
+        return self.documents
+
+    def embed_and_store(self) -> int:
+        """
+        Embed documents and store in the vector database.
+        Skips if documents are already stored.
+
+        Returns:
+            Number of documents stored
+        """
+        if self.vectordb.exists():
+            count = self.vectordb.count()
+            print(f"✓ Vector store already has {count} documents")
+            return count
+
+        if not self.documents:
+            print("No documents to embed. Run load_documents() first.")
+            return 0
+
+        print(f"Embedding {len(self.documents)} documents...")
+        count = self.vectordb.add_documents(self.documents)
+        print(f"✓ Stored {count} documents in vector database")
+        return count
+
+    def search(
+        self,
+        query: str,
+        k: int = 5,
+        filter: Optional[dict] = None
+    ) -> List[Document]:
+        """
+        Search for similar documents.
+
+        Args:
+            query: Search query in natural language
+            k: Number of results to return
+            filter: Optional metadata filter
+
+        Returns:
+            List of similar documents
+        """
+        return self.vectordb.search(query, k=k, filter=filter)
+
+    def get_stats(self) -> dict:
+        """
+        Get statistics about the loaded documents.
+
+        Returns:
+            Dictionary with document statistics
+        """
+        if not self.documents:
+            return {"total_chunks": 0, "text_chunks": 0, "table_chunks": 0}
+
+        text_chunks = sum(1 for doc in self.documents if doc.metadata.get("content_type") == "text")
+        table_chunks = sum(1 for doc in self.documents if doc.metadata.get("content_type") == "table")
+        
+        return {
+            "total_chunks": len(self.documents),
+            "text_chunks": text_chunks,
+            "table_chunks": table_chunks,
+            "sources": len(set(doc.metadata.get("source", "") for doc in self.documents)),
+            "stored_in_db": self.vectordb.count() if self.vectordb.exists() else 0
+        }
+
+
+def main():
+    """
+    Main execution function - demonstrates the RAG pipeline.
+    """
+    rag = InsuranceRAG()
+    
+    # Load and process documents
+    rag.load_documents()
+    
+    # Embed and store
+    rag.embed_and_store()
+    
+    # Show statistics
+    stats = rag.get_stats()
+    print(f"\nStatistics:")
+    print(f"  Sources: {stats['sources']}")
+    print(f"  Text chunks: {stats['text_chunks']}")
+    print(f"  Table chunks: {stats['table_chunks']}")
+    print(f"  Stored in DB: {stats['stored_in_db']}")
+
+
+if __name__ == "__main__":
+    main()
