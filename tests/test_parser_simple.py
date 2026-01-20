@@ -3,13 +3,20 @@ Simple test script for quick PDF parsing debugging
 Run: python -m tests.test_parser_simple
 """
 
-from src.parser import DocumentProcessor
 import os
+import sys
+
+# Add project root to path to allow imports
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from src.parser import DocumentProcessor
 
 
 def main():
     # Find first PDF
-    pdf_dir = os.path.join('data', 'pdfs')
+    pdf_dir = r'data\pdfs'
     pdf_files = [f for f in os.listdir(pdf_dir) if f.endswith('.pdf')]
     
     if not pdf_files:
