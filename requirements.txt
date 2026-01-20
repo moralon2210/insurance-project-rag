@@ -1,0 +1,11 @@
+# PDF Parsing
+pdfplumber==0.11.4
+
+# LangChain Framework
+langchain==0.3.21
+langchain-core==0.3.45
+langchain-community==0.3.18
+langchain-text-splitters==0.3.7
+
+# Environment Configuration
+python-dotenv==1.0.1
