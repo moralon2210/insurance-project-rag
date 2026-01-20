@@ -38,32 +38,20 @@ class VectorDB:
         self.persist_directory = persist_directory or self.DEFAULT_PERSIST_DIR
         self.collection_name = collection_name or self.DEFAULT_COLLECTION
         self.model_name = model_name or self.DEFAULT_MODEL
-        self._embeddings = None
-        self._store = None
-
-    def get_embeddings(self) -> HuggingFaceEmbeddings:
-        """
-        Get the embedding model (creates it if needed).
-        """
-        if self._embeddings is None:
-            self._embeddings = HuggingFaceEmbeddings(
-                model_name=self.model_name,
-                model_kwargs={"device": "cpu"},
-                encode_kwargs={"normalize_embeddings": True}
-            )
-        return self._embeddings
-
-    def get_store(self) -> Chroma:
-        """
-        Get the ChromaDB store (creates it if needed).
-        """
-        if self._store is None:
-            self._store = Chroma(
-                collection_name=self.collection_name,
-                embedding_function=self.get_embeddings(),
-                persist_directory=self.persist_directory
-            )
-        return self._store
+        
+        # Create embeddings model
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name=self.model_name,
+            model_kwargs={"device": "cpu"},
+            encode_kwargs={"normalize_embeddings": True}
+        )
+        
+        # Create ChromaDB store
+        self.store = Chroma(
+            collection_name=self.collection_name,
+            embedding_function=self.embeddings,
+            persist_directory=self.persist_directory
+        )
 
     def add_documents(self, documents: List[Document]) -> int:
         """
@@ -78,9 +66,7 @@ class VectorDB:
         if not documents:
             return 0
 
-        # Call Chroma's add_documents method
-        store = self.get_store()
-        store.add_documents(documents)
+        self.store.add_documents(documents)
         return len(documents)
 
     def search(
@@ -100,21 +86,23 @@ class VectorDB:
         Returns:
             List of similar documents
         """
-        store = self.get_store()
         if filter:
-            return store.similarity_search(query, k=k, filter=filter)
-        return store.similarity_search(query, k=k)
+            return self.store.similarity_search(query, k=k, filter=filter)
+        return self.store.similarity_search(query, k=k)
 
     def count(self) -> int:
         """Get the number of documents in the store."""
-        store = self.get_store()
-        return store._collection.count()
+        return self.store._collection.count()
 
     def clear(self):
         """Clear all documents from the store."""
-        store = self.get_store()
-        store._collection.delete(where={})
-        self._store = None
+        self.store._collection.delete(where={})
+        # Recreate the store after clearing
+        self.store = Chroma(
+            collection_name=self.collection_name,
+            embedding_function=self.embeddings,
+            persist_directory=self.persist_directory
+        )
 
     def exists(self) -> bool:
         """

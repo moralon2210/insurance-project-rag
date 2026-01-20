@@ -3,6 +3,7 @@ Hebrew Health Insurance RAG System
 Main orchestration file for the RAG pipeline.
 """
 
+import sys
 from typing import List, Optional
 from langchain_core.documents import Document
 
@@ -97,7 +98,7 @@ class InsuranceRAG:
             Dictionary with document statistics
         """
         if not self.documents:
-            return {"total_chunks": 0, "text_chunks": 0, "table_chunks": 0}
+            return {"total_chunks": 0, "text_chunks": 0, "table_chunks": 0, "sources": 0}
 
         text_chunks = sum(1 for doc in self.documents if doc.metadata.get("content_type") == "text")
         table_chunks = sum(1 for doc in self.documents if doc.metadata.get("content_type") == "table")
@@ -106,8 +107,7 @@ class InsuranceRAG:
             "total_chunks": len(self.documents),
             "text_chunks": text_chunks,
             "table_chunks": table_chunks,
-            "sources": len(set(doc.metadata.get("source", "") for doc in self.documents)),
-            "stored_in_db": self.vectordb.count() if self.vectordb.exists() else 0
+            "sources": len(set(doc.metadata.get("source", "") for doc in self.documents))
         }
 
 
@@ -119,21 +119,18 @@ def main():
         python rag.py           # Use existing DB if available
         python rag.py --reset   # Clear and rebuild database
     """
-    import sys
-    
     rag = InsuranceRAG()
     
-    # Check for reset flag or if DB doesn't exist
+    # Check for reset flag
     force_reset = "--reset" in sys.argv
+    db_exists = rag.vectordb.exists()
     
-    if force_reset or not rag.vectordb.exists():
+    if force_reset or not db_exists:
         if force_reset:
             print("🔄 Resetting database...")
+            rag.vectordb.clear()
         else:
             print("📦 Building database from scratch...")
-        
-        # Clear existing data
-        rag.vectordb.clear()
         
         # Load and process documents
         rag.load_documents()
@@ -147,7 +144,7 @@ def main():
         print(f"  Sources: {stats['sources']}")
         print(f"  Text chunks: {stats['text_chunks']}")
         print(f"  Table chunks: {stats['table_chunks']}")
-        print(f"  Stored in DB: {stats['stored_in_db']}")
+        print(f"  Total: {stats['total_chunks']}")
     else:
         count = rag.vectordb.count()
         print(f"✓ Database already exists with {count} documents")

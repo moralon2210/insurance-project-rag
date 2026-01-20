@@ -194,6 +194,28 @@ class DocumentProcessor:
         
         return split_docs
 
+    def process_files(self, file_paths: List[Union[str]]) -> List[Document]:
+        """
+        Process a list of PDF files.
+
+        Args:
+            file_paths: List of paths to PDF files
+
+        Returns:
+            List of LangChain Document objects from all PDFs
+        """
+        all_documents = []
+
+        for file_path in file_paths:
+            try:
+                docs = self.process_file(file_path)
+                all_documents.extend(docs)
+                print(f"Processed: {os.path.basename(file_path)} ({len(docs)} chunks)")
+            except Exception as e:
+                print(f"Error processing {file_path}: {e}")
+
+        return all_documents
+
     def process_directory(self, directory_path: Union[str]) -> List[Document]:
         """
         Process all PDF files in a directory (including subdirectories).
@@ -221,25 +243,3 @@ class DocumentProcessor:
             return []
 
         return self.process_files(pdf_files)
-
-    def process_files(self, file_paths: List[Union[str]]) -> List[Document]:
-        """
-        Process a list of PDF files.
-
-        Args:
-            file_paths: List of paths to PDF files
-
-        Returns:
-            List of LangChain Document objects from all PDFs
-        """
-        all_documents = []
-
-        for file_path in file_paths:
-            try:
-                docs = self.process_file(file_path)
-                all_documents.extend(docs)
-                print(f"Processed: {os.path.basename(file_path)} ({len(docs)} chunks)")
-            except Exception as e:
-                print(f"Error processing {file_path}: {e}")
-
-        return all_documents
