@@ -8,7 +8,6 @@ Runs entirely locally on CPU.
 import os
 from typing import List, Optional
 from langchain_core.documents import Document
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 
 
@@ -76,10 +75,11 @@ class VectorDB:
         filter: Optional[dict] = None
     ) -> List[Document]:
         """
-        Search for similar documents.
-
+        Search for similar documents (retrieval for RAG).
+        By default, chromaDB uses cosine similarity to find the most similar documents.
+        
         Args:
-            query: Search query text
+            query: Search query or user question
             k: Number of results to return
             filter: Optional metadata filter
 
@@ -89,6 +89,33 @@ class VectorDB:
         if filter:
             return self.store.similarity_search(query, k=k, filter=filter)
         return self.store.similarity_search(query, k=k)
+
+    def format_context(self, documents: List[Document]) -> str:
+        """
+        Format retrieved documents into context string for LLM.
+
+        Args:
+            documents: List of retrieved documents
+
+        Returns:
+            Formatted context string with sources
+        """
+        if not documents:
+            return ""
+
+        context_parts = []
+        
+        for i, doc in enumerate(documents, 1):
+            source = os.path.basename(doc.metadata.get("source", "Unknown Source"))
+            page = doc.metadata.get("page", "Unknown Page")
+            content_type = doc.metadata.get("content_type", "Unknown Content Type")
+            
+            context_parts.append(
+                f"[מקור {i}: {source}, עמוד {page}, סוג: {content_type}]\n"
+                f"{doc.page_content}\n"
+            )
+        
+        return "\n---\n".join(context_parts)
 
     def count(self) -> int:
         """Get the number of documents in the store."""

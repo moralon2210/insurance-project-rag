@@ -9,12 +9,13 @@ Get instant answers about your coverage, reimbursements, and terms - simply uplo
 ```
 project/
 ├── src/
-│   ├── parser/
+│   ├── utils/
 │   │   ├── __init__.py          # Module exports
 │   │   ├── pdf_parser.py        # Unified PDF extraction with table support
 │   │   ├── text_splitter.py     # Hebrew-optimized text chunking
 │   │   └── processor.py         # Document processing orchestrator
-│   └── vectordb.py              # Vector database with local embeddings
+│   ├── vectordb.py              # Vector DB + Retrieval
+│   └── llm.py                   # LLM integration & prompts
 ├── tests/
 │   ├── __init__.py
 │   ├── test_parser.py           # Full test with interactive mode
@@ -23,6 +24,7 @@ project/
 │   ├── pdfs/                    # Place your PDF files here
 │   └── chroma_db/               # Vector database storage (auto-created)
 ├── rag.py                       # Main RAG orchestration file
+├── .env                         # API keys (create from .env.example)
 ├── requirements.txt
 └── README.md
 ```
@@ -60,35 +62,45 @@ python -m tests.test_parser_simple
 python -m tests.test_parser
 ```
 
+### Setup OpenAI API Key
+
+Create a `.env` file in the project root:
+```
+OPENAI_API_KEY=your-api-key-here
+```
+
+Get your API key from: https://platform.openai.com/api-keys
+
 ### Using the RAG System
 
 ```python
 from rag import InsuranceRAG
 
 # Initialize the RAG system
-rag = InsuranceRAG(pdf_directory="data/pdfs")
+rag = InsuranceRAG()
 
-# Clear and rebuild database (optional)
-rag.vectordb.clear()
-
-# Load and embed documents
+# Build the database (first run)
 rag.load_documents()
 rag.embed_and_store()
 
-# Search for similar documents
-results = rag.search("האם יש כיסוי להשתלות בחו\"ל?", k=5)
+# Ask questions in natural language
+answer = rag.query("האם יש כיסוי להשתלות בחו\"ל?")
+print(answer)
+
+# With sources
+answer = rag.query("כמה מקבלים החזר על פיזיותרפיה?", show_sources=True)
+print(answer)
+
+# Search for similar documents (raw search)
+results = rag.search("כיסוי רפואי", k=5)
 for doc in results:
     print(f"Page {doc.metadata['page']}: {doc.page_content[:100]}...")
-
-# Get statistics
-stats = rag.get_stats()
-print(f"Total: {stats['total_chunks']} chunks from {stats['sources']} sources")
 ```
 
 ### Using the Processor Directly
 
 ```python
-from src.parser import DocumentProcessor
+from src.utils import DocumentProcessor
 
 # Initialize processor
 processor = DocumentProcessor(
@@ -116,6 +128,8 @@ for doc in documents:
 - **Optimized Chunking**: Hebrew-appropriate chunk sizes and separators
 - **Local Embeddings**: Multilingual sentence-transformers model running entirely on CPU
 - **Vector Database**: ChromaDB for persistent local storage with semantic search
+- **Intelligent Retrieval**: Context-aware document retrieval and formatting
+- **Hebrew LLM Integration**: OpenAI GPT with Hebrew-optimized system prompt
 - **Metadata Preservation**: Keeps track of source file and page numbers
 
 ## How It Works
@@ -127,7 +141,8 @@ This system helps you understand your private health insurance policy:
 3. **Text Chunking**: Splits content into semantic chunks optimized for Hebrew text
 4. **Embedding**: Converts chunks to vectors using a multilingual model (supports Hebrew)
 5. **Vector Storage**: Stores embeddings in ChromaDB for fast semantic search
-6. **Semantic Search**: Query in natural language and get relevant document chunks
+6. **Retrieval**: Finds relevant document chunks based on semantic similarity
+7. **Answer Generation**: Uses OpenAI GPT with context to answer questions accurately in Hebrew
 
 ### What You Can Ask
 

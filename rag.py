@@ -3,12 +3,14 @@ Hebrew Health Insurance RAG System
 Main orchestration file for the RAG pipeline.
 """
 
+import os
 import sys
 from typing import List, Optional
 from langchain_core.documents import Document
 
-from src.parser import DocumentProcessor
+from src.utils import DocumentProcessor
 from src.vectordb import VectorDB
+from src.llm import InsuranceLLM
 
 
 class InsuranceRAG:
@@ -38,6 +40,7 @@ class InsuranceRAG:
             chunk_overlap=chunk_overlap
         )
         self.vectordb = VectorDB(persist_directory=persist_directory)
+        self.llm = None  # Lazy loading
         self.documents: List[Document] = []
 
     def load_documents(self) -> List[Document]:
@@ -89,6 +92,44 @@ class InsuranceRAG:
             List of similar documents
         """
         return self.vectordb.search(query, k=k, filter=filter)
+
+    def query(self, question: str, k: int = 5, show_sources: bool = False) -> str:
+        """
+        Ask a question about the insurance documents.
+
+        Args:
+            question: Question in Hebrew
+            k: Number of documents to retrieve for context
+            show_sources: Whether to show sources in the answer
+
+        Returns:
+            Answer from the LLM
+        """
+        # Initialize LLM if not already done (lazy loading)
+        if self.llm is None:
+            self.llm = InsuranceLLM()
+        
+        # 1. Retrieve relevant documents
+        documents = self.vectordb.search(question, k=k)
+        
+        if not documents:
+            return "לא נמצאו מסמכים רלוונטיים לשאלה זו."
+        
+        # 2. Format context
+        context = self.vectordb.format_context(documents)
+        
+        # 3. Ask LLM
+        answer = self.llm.ask(question, context)
+        
+        # 4. Add sources if requested
+        if show_sources:
+            answer += "\n\n📚 מקורות:\n"
+            for i, doc in enumerate(documents, 1):
+                source = os.path.basename(doc.metadata.get("source", ""))
+                page = doc.metadata.get("page", "?")
+                answer += f"  {i}. {source} (עמוד {page})\n"
+        
+        return answer
 
     def get_stats(self) -> dict:
         """
