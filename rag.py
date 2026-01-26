@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Hebrew Health Insurance RAG System
 Main orchestration file for the RAG pipeline.
@@ -5,7 +6,7 @@ Main orchestration file for the RAG pipeline.
 
 import os
 import sys
-from typing import List, Optional
+from typing import List
 from langchain_core.documents import Document
 
 from src.utils import DocumentProcessor
@@ -74,25 +75,6 @@ class InsuranceRAG:
         print(f"✓ Stored {count} documents in vector database")
         return count
 
-    def search(
-        self,
-        query: str,
-        k: int = 5,
-        filter: Optional[dict] = None
-    ) -> List[Document]:
-        """
-        Search for similar documents.
-
-        Args:
-            query: Search query in natural language
-            k: Number of results to return
-            filter: Optional metadata filter
-
-        Returns:
-            List of similar documents
-        """
-        return self.vectordb.search(query, k=k, filter=filter)
-
     def query(self, question: str, k: int = 5, show_sources: bool = False) -> str:
         """
         Ask a question about the insurance documents.
@@ -116,7 +98,7 @@ class InsuranceRAG:
             return "לא נמצאו מסמכים רלוונטיים לשאלה זו."
         
         # 2. Format context
-        context = self.vectordb.format_context(documents)
+        context = self.llm.format_context(documents)
         
         # 3. Ask LLM
         answer = self.llm.ask(question, context)
@@ -181,7 +163,7 @@ def main():
         
         # Show statistics
         stats = rag.get_stats()
-        print(f"\nStatistics:")
+        print(f"\n📊 Statistics:")
         print(f"  Sources: {stats['sources']}")
         print(f"  Text chunks: {stats['text_chunks']}")
         print(f"  Table chunks: {stats['table_chunks']}")
@@ -190,6 +172,21 @@ def main():
         count = rag.vectordb.count()
         print(f"✓ Database already exists with {count} documents")
         print(f"  Use 'python rag.py --reset' to rebuild")
+    
+    # Demonstrate the RAG pipeline with example questions
+    print("\n" + "="*60)
+    print("🤖 RAG Pipeline Demo - Example Questions")
+    print("="*60)
+    
+    example_question = input("היי! מוזמן לשאול שאלות בנוגע למסמכי הביטוח שלך: ")
+    print(f"\n❓ שאלה: {example_question}")
+    print("-" * 60)
+    try:
+        answer = rag.query(example_question, k=3, show_sources=True)
+        print(answer)
+    except Exception as e:
+        print(f"❌ Error: {e}")
+    print("-" * 60)
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Vector Database for Hebrew Health Insurance RAG System
 
@@ -8,7 +9,9 @@ Runs entirely locally on CPU.
 import os
 from typing import List, Optional
 from langchain_core.documents import Document
+
 from langchain_community.vectorstores import Chroma
+from src.utils.embeddings import E5Embeddings
 
 
 class VectorDB:
@@ -16,7 +19,7 @@ class VectorDB:
     Local vector database with multilingual embeddings and ChromaDB storage.
     """
 
-    DEFAULT_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    DEFAULT_MODEL = "intfloat/multilingual-e5-base"
     DEFAULT_PERSIST_DIR = "data/chroma_db"
     DEFAULT_COLLECTION = "insurance_docs"
 
@@ -39,10 +42,10 @@ class VectorDB:
         self.model_name = model_name or self.DEFAULT_MODEL
         
         # Create embeddings model
-        self.embeddings = HuggingFaceEmbeddings(
+        self.embeddings = E5Embeddings(
             model_name=self.model_name,
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": True}
+            device="cpu",
+            normalize_embeddings=True
         )
         
         # Create ChromaDB store
@@ -89,33 +92,6 @@ class VectorDB:
         if filter:
             return self.store.similarity_search(query, k=k, filter=filter)
         return self.store.similarity_search(query, k=k)
-
-    def format_context(self, documents: List[Document]) -> str:
-        """
-        Format retrieved documents into context string for LLM.
-
-        Args:
-            documents: List of retrieved documents
-
-        Returns:
-            Formatted context string with sources
-        """
-        if not documents:
-            return ""
-
-        context_parts = []
-        
-        for i, doc in enumerate(documents, 1):
-            source = os.path.basename(doc.metadata.get("source", "Unknown Source"))
-            page = doc.metadata.get("page", "Unknown Page")
-            content_type = doc.metadata.get("content_type", "Unknown Content Type")
-            
-            context_parts.append(
-                f"[מקור {i}: {source}, עמוד {page}, סוג: {content_type}]\n"
-                f"{doc.page_content}\n"
-            )
-        
-        return "\n---\n".join(context_parts)
 
     def count(self) -> int:
         """Get the number of documents in the store."""

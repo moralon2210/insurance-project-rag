@@ -4,6 +4,33 @@ A RAG (Retrieval-Augmented Generation) system that lets you **ask questions abou
 
 Get instant answers about your coverage, reimbursements, and terms - simply upload your Hebrew insurance documents and ask questions like "Is this treatment covered?" or "How much reimbursement will I get?"
 
+## RAG Pipeline
+
+![RAG Pipeline](RAG_pipeline.png)
+
+## RAG Logic
+
+**User Flow**
+```
+Add PDFs → Process Documents → Chat Q&A grounded in your insurance policy
+```
+
+**Processing Flow**
+```
+Upload PDF → Parse & Extract → Chunk Text → Generate Embeddings → Store in Vector DB → Semantic Search → LLM Answer
+```
+
+## Architecture
+
+| Component | Technology | Description |
+|-----------|------------|-------------|
+| **PDF Parsing** | pdfplumber | Character-level Hebrew extraction with table support |
+| **Chunking** | LangChain Text Splitters | Hebrew-optimized recursive splitting |
+| **Embeddings** | HuggingFace sentence-transformers | Multilingual model running locally on CPU |
+| **Vector DB** | ChromaDB | Persistent local storage with semantic search |
+| **LLM** | OpenAI GPT-4o-mini | Hebrew-optimized prompts for accurate answers |
+| **Framework** | LangChain | Document processing and chain orchestration |
+
 ## Project Structure
 
 ```
@@ -29,19 +56,47 @@ project/
 └── README.md
 ```
 
-## Installation
+## Getting Started
+
+### Step 1: Clone and Setup
+
+```bash
+git clone <repository-url>
+cd insurance-project-rag
+```
+
+### Step 2: Create Virtual Environment
+
+```bash
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+
+# macOS/Linux
+source venv/bin/activate
+```
+
+### Step 3: Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Usage
+### Step 4: Configure API Key
 
-### Quick Start
+Create a `.env` file in the project root:
+```
+OPENAI_API_KEY=your-api-key-here
+```
+
+Get your API key from: https://platform.openai.com/api-keys
+
+### Step 5: Add PDFs and Run
 
 1. **Add PDF files** to the `data/pdfs/` directory
 
-2. **Run the main RAG system**:
+2. **Run the RAG system**:
 ```bash
 # First run - builds the database
 python rag.py
@@ -62,14 +117,7 @@ python -m tests.test_parser_simple
 python -m tests.test_parser
 ```
 
-### Setup OpenAI API Key
-
-Create a `.env` file in the project root:
-```
-OPENAI_API_KEY=your-api-key-here
-```
-
-Get your API key from: https://platform.openai.com/api-keys
+## Usage
 
 ### Using the RAG System
 
@@ -91,8 +139,8 @@ print(answer)
 answer = rag.query("כמה מקבלים החזר על פיזיותרפיה?", show_sources=True)
 print(answer)
 
-# Search for similar documents (raw search)
-results = rag.search("כיסוי רפואי", k=5)
+# Search for similar documents (raw search via vectordb)
+results = rag.vectordb.search("כיסוי רפואי", k=5)
 for doc in results:
     print(f"Page {doc.metadata['page']}: {doc.page_content[:100]}...")
 ```
