@@ -2,27 +2,34 @@
 Text Splitter for Hebrew Health Insurance Documents
 
 Provides Hebrew-optimized text chunking for RAG pipelines.
+Uses token-based chunking to ensure chunks fit within E5 model context window (512 tokens).
 """
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from typing import List, Optional
 
+from .tokenizer import E5Tokenizer
+
 
 def create_text_splitter(
-    chunk_size: int = 600,
-    chunk_overlap: int = 120,
+    max_tokens: int = 450,
+    token_overlap: int = 50,
     separators: Optional[List[str]] = None
 ) -> RecursiveCharacterTextSplitter:
     """
     Create a text splitter optimized for Hebrew insurance documents.
+    
+    Uses token-based chunking to ensure chunks fit within the E5 model's
+    512 token context window. Default max_tokens=450 leaves room for
+    the "passage: " prefix added during embedding.
 
     Args:
-        chunk_size: Maximum size of each chunk (default: 600 characters)
-        chunk_overlap: Overlap between consecutive chunks (default: 120 characters)
+        max_tokens: Maximum tokens per chunk (default: 450)
+        token_overlap: Overlap in tokens between chunks (default: 50)
         separators: Custom separators list (default: Hebrew-optimized separators)
 
     Returns:
-        Configured RecursiveCharacterTextSplitter instance
+        Configured RecursiveCharacterTextSplitter instance with token-based length function
     """
     if separators is None:
         # Hebrew-optimized separators
@@ -36,9 +43,9 @@ def create_text_splitter(
         ]
 
     return RecursiveCharacterTextSplitter(
-        chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap,
+        chunk_size=max_tokens,
+        chunk_overlap=token_overlap,
         separators=separators,
-        length_function=len,
+        length_function=E5Tokenizer.count_tokens,  # Token-based length!
         is_separator_regex=False,
     )

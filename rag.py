@@ -22,8 +22,8 @@ class InsuranceRAG:
     def __init__(
         self,
         pdf_directory: str = "data/pdfs",
-        chunk_size: int = 600,
-        chunk_overlap: int = 120,
+        max_tokens: int = 450,
+        token_overlap: int = 50,
         persist_directory: str = "data/chroma_db"
     ):
         """
@@ -31,14 +31,14 @@ class InsuranceRAG:
 
         Args:
             pdf_directory: Directory containing PDF files
-            chunk_size: Maximum chunk size in characters
-            chunk_overlap: Overlap between chunks
+            max_tokens: Maximum tokens per chunk (default: 450)
+            token_overlap: Token overlap between chunks (default: 50)
             persist_directory: Directory to persist the vector database
         """
         self.pdf_directory = pdf_directory
         self.processor = DocumentProcessor(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap
+            max_tokens=max_tokens,
+            token_overlap=token_overlap
         )
         self.vectordb = VectorDB(persist_directory=persist_directory)
         self.llm = None  # Lazy loading
@@ -55,7 +55,7 @@ class InsuranceRAG:
         self.documents = self.processor.process_directory(self.pdf_directory)
         
         if self.documents:
-            print(f"✓ Loaded {len(self.documents)} chunks")
+            print(f"Loaded {len(self.documents)} chunks")
         
         return self.documents
 
@@ -70,9 +70,11 @@ class InsuranceRAG:
             print("No documents to embed. Run load_documents() first.")
             return 0
 
-        print(f"Embedding {len(self.documents)} documents...")
+        print(f"\n[*] Starting database creation...")
+        print(f"[*] Embedding {len(self.documents)} documents...")
         count = self.vectordb.add_documents(self.documents)
-        print(f"✓ Stored {count} documents in vector database")
+        print(f"[+] Database creation completed!")
+        print(f"[+] Stored {count} documents in vector database")
         return count
 
     def query(self, question: str, k: int = 5, show_sources: bool = False) -> str:
@@ -92,10 +94,29 @@ class InsuranceRAG:
             self.llm = InsuranceLLM()
         
         # 1. Retrieve relevant documents
-        documents = self.vectordb.search(question, k=k)
+        print(f"\n[DEBUG] Searching for: {question}")
+        documents = self.vectordb.search(question, k=k, use_reranker=True)
+        print(f"[DEBUG] Found {len(documents)} documents (after reranking)")
+        
+        if documents:
+            print("\n" + "="*80)
+            print("[DEBUG] FULL RETRIEVED CHUNKS:")
+            print("="*80)
+            for i, doc in enumerate(documents, 1):
+                source = os.path.basename(doc.metadata.get("source", "?"))
+                page = doc.metadata.get("page", "?")
+                content_type = doc.metadata.get("content_type", "?")
+                print(f"\n--- CHUNK {i} ---")
+                print(f"Source: {source}")
+                print(f"Page: {page}")
+                print(f"Type: {content_type}")
+                print(f"Content length: {len(doc.page_content)} chars")
+                print(f"Content:\n{doc.page_content}")
+                print("-" * 80)
+            print("="*80 + "\n")
         
         if not documents:
-            return "לא נמצאו מסמכים רלוונטיים לשאלה זו."
+            return "No relevant documents found for this question."
         
         # 2. Format context
         context = self.llm.format_context(documents)
@@ -105,11 +126,11 @@ class InsuranceRAG:
         
         # 4. Add sources if requested
         if show_sources:
-            answer += "\n\n📚 מקורות:\n"
+            answer += "\n\nSources:\n"
             for i, doc in enumerate(documents, 1):
                 source = os.path.basename(doc.metadata.get("source", ""))
                 page = doc.metadata.get("page", "?")
-                answer += f"  {i}. {source} (עמוד {page})\n"
+                answer += f"  {i}. {source} (page {page})\n"
         
         return answer
 
@@ -150,10 +171,10 @@ def main():
     
     if force_reset or not db_exists:
         if force_reset:
-            print("🔄 Resetting database...")
+            print("Resetting database...")
             rag.vectordb.clear()
         else:
-            print("📦 Building database from scratch...")
+            print("Building database from scratch...")
         
         # Load and process documents
         rag.load_documents()
@@ -163,30 +184,49 @@ def main():
         
         # Show statistics
         stats = rag.get_stats()
-        print(f"\n📊 Statistics:")
+        print(f"\nStatistics:")
         print(f"  Sources: {stats['sources']}")
         print(f"  Text chunks: {stats['text_chunks']}")
         print(f"  Table chunks: {stats['table_chunks']}")
         print(f"  Total: {stats['total_chunks']}")
     else:
         count = rag.vectordb.count()
-        print(f"✓ Database already exists with {count} documents")
+        print(f"Database already exists with {count} documents")
         print(f"  Use 'python rag.py --reset' to rebuild")
     
     # Demonstrate the RAG pipeline with example questions
     print("\n" + "="*60)
-    print("🤖 RAG Pipeline Demo - Example Questions")
-    print("="*60)
+    print("RAG Pipeline Demo - Chat Interface")
+    print("Ask questions about the insurance documents")
+    print("To quit, type 'q', 'exit', or 'quit', or press Ctrl+C")
+    print("="*60 + "\n")
     
-    example_question = input("היי! מוזמן לשאול שאלות בנוגע למסמכי הביטוח שלך: ")
-    print(f"\n❓ שאלה: {example_question}")
-    print("-" * 60)
-    try:
-        answer = rag.query(example_question, k=3, show_sources=True)
-        print(answer)
-    except Exception as e:
-        print(f"❌ Error: {e}")
-    print("-" * 60)
+    while True:
+        try:
+            example_question = input("\nYour question: ").strip()
+            # Check for exit commands
+            if example_question.lower() in ['q', 'exit', 'quit']:
+                print("\nGoodbye!")
+                break
+            
+            # Skip empty input
+            if not example_question:
+                print("Please ask a question")
+                continue
+            
+            print(f"\nQuestion: {example_question}")
+            print("-" * 60)
+            
+            answer = rag.query(example_question, k=5, show_sources=True)
+            print(answer)
+            print("-" * 60)
+            
+        except KeyboardInterrupt:
+            print("\n\nSession ended. Goodbye!")
+            break
+        except Exception as e:
+            print(f"Error: {e}")
+            print("-" * 60)
 
 
 if __name__ == "__main__":

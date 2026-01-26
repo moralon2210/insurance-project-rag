@@ -3,6 +3,7 @@
 Custom Embedding Models for Hebrew Health Insurance RAG System
 
 Implements E5 embeddings with proper query/passage prefixes for optimal performance.
+E5 models REQUIRE these prefixes for good retrieval quality.
 """
 
 from typing import List
@@ -14,11 +15,11 @@ class E5Embeddings(Embeddings):
     """
     Custom E5 embedding class using sentence-transformers.
     
-    E5 models are designed to work with prefixes:
+    E5 models are designed to work with specific prefixes:
     - "query: " for search queries
-    - "passage: " for documents
+    - "passage: " for documents/passages
     
-    This provides better semantic understanding and retrieval performance.
+    These prefixes are REQUIRED for optimal retrieval performance.
     """
     
     def __init__(
@@ -46,16 +47,18 @@ class E5Embeddings(Embeddings):
         """
         Embed a list of documents with "passage: " prefix.
         
+        E5 models require this prefix for documents to ensure proper
+        semantic matching with queries.
+        
         Args:
             texts: List of document texts to embed
             
         Returns:
             List of embeddings as lists of floats
         """
-        # Add passage prefix for documents
+        # Add "passage: " prefix for E5 models (REQUIRED for good retrieval)
         prefixed_texts = [f"passage: {text}" for text in texts]
         
-        # Generate embeddings
         embeddings = self.model.encode(
             prefixed_texts,
             convert_to_tensor=False,
@@ -69,16 +72,18 @@ class E5Embeddings(Embeddings):
         """
         Embed a single query with "query: " prefix.
         
+        E5 models require this prefix for queries to ensure proper
+        semantic matching with documents.
+        
         Args:
             text: Query text to embed
             
         Returns:
             Embedding as a list of floats
         """
-        # Add query prefix for search queries
+        # Add "query: " prefix for E5 models (REQUIRED for good retrieval)
         prefixed_text = f"query: {text}"
         
-        # Generate embedding
         embedding = self.model.encode(
             prefixed_text,
             convert_to_tensor=False,

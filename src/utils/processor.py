@@ -3,6 +3,9 @@ Document Processor for Hebrew Health Insurance Documents
 
 Orchestrates PDF parsing and text splitting to produce LangChain Document
 objects ready for embedding and vector store insertion.
+
+Uses token-based chunking to ensure all content fits within the E5 model's
+512 token context window.
 """
 
 import os
@@ -12,6 +15,7 @@ from langchain_core.documents import Document
 
 from .pdf_parser import PDFParser
 from .text_splitter import create_text_splitter
+from .tokenizer import E5Tokenizer
 
 
 class DocumentProcessor:
@@ -19,25 +23,34 @@ class DocumentProcessor:
     Orchestrates the document processing pipeline:
     PDF → Parse → Split → LangChain Documents
     
-    Tables are extracted and kept as whole chunks to preserve their structure.
+    Both text and tables are chunked using token-based limits to ensure
+    they fit within the embedding model's context window.
     """
+
+    # Token limits for chunking (E5 model has 512 token context window)
+    MAX_TEXT_TOKENS = 450      # Leave room for "passage: " prefix
+    TEXT_OVERLAP_TOKENS = 50   # Overlap for text chunks
+    MAX_TABLE_TOKENS = 400     # Tables need extra room for headers
 
     def __init__(
         self,
-        chunk_size: int = 600,
-        chunk_overlap: int = 120
+        max_tokens: int = None,
+        token_overlap: int = None
     ):
         """
         Initialize the document processor.
 
         Args:
-            chunk_size: Maximum chunk size in characters
-            chunk_overlap: Overlap between chunks
+            max_tokens: Maximum tokens per text chunk (default: 450)
+            token_overlap: Token overlap between chunks (default: 50)
         """
+        self.max_tokens = max_tokens or self.MAX_TEXT_TOKENS
+        self.token_overlap = token_overlap or self.TEXT_OVERLAP_TOKENS
+        
         self.parser = PDFParser()
         self.splitter = create_text_splitter(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap
+            max_tokens=self.max_tokens,
+            token_overlap=self.token_overlap
         )
 
     def _extract_tables(self, text: str) -> Tuple[str, List[str], List[int]]:
@@ -105,6 +118,72 @@ class DocumentProcessor:
                 return page_info["page"]
         # Default to last page if position is beyond all ranges
         return page_ranges[-1]["page"] if page_ranges else 1
+
+    def _chunk_table(self, table: str, max_tokens: int = None) -> List[str]:
+        """
+        Split a large table into smaller chunks that fit within token limits.
+        
+        Each chunk preserves the header row (column names + separator) to maintain
+        table structure and context. Rows are not split mid-row.
+        
+        Args:
+            table: The markdown table string
+            max_tokens: Maximum tokens per chunk (default: MAX_TABLE_TOKENS)
+            
+        Returns:
+            List of table chunks, each with the header preserved
+        """
+        max_tokens = max_tokens or self.MAX_TABLE_TOKENS
+        
+        lines = table.split('\n')
+        
+        # Need at least header row and separator
+        if len(lines) < 2:
+            return [table]
+        
+        # Extract header (first two lines: column names + separator line)
+        header = '\n'.join(lines[:2])
+        header_tokens = E5Tokenizer.count_tokens(header)
+        data_rows = lines[2:]
+        
+        # If no data rows, return as-is
+        if not data_rows:
+            return [table]
+        
+        # If entire table fits, return as-is
+        total_tokens = E5Tokenizer.count_tokens(table)
+        if total_tokens <= max_tokens:
+            return [table]
+        
+        # Check if header alone exceeds limit (unlikely but handle it)
+        if header_tokens >= max_tokens:
+            # Truncate the whole table as a fallback
+            return [E5Tokenizer.truncate_to_tokens(table, max_tokens)]
+        
+        # Split table by rows, keeping header in each chunk
+        chunks = []
+        current_rows = []
+        current_tokens = header_tokens
+        
+        for row in data_rows:
+            row_tokens = E5Tokenizer.count_tokens(row)
+            
+            # If adding this row would exceed limit, save current chunk
+            if current_tokens + row_tokens > max_tokens and current_rows:
+                chunk_content = header + '\n' + '\n'.join(current_rows)
+                chunks.append(chunk_content)
+                current_rows = [row]
+                current_tokens = header_tokens + row_tokens
+            else:
+                current_rows.append(row)
+                current_tokens += row_tokens
+        
+        # Add remaining rows as final chunk
+        if current_rows:
+            chunk_content = header + '\n' + '\n'.join(current_rows)
+            chunks.append(chunk_content)
+        
+        return chunks if chunks else [table]
 
     def process_file(self, file_path: Union[str]) -> List[Document]:
         """
@@ -175,22 +254,28 @@ class DocumentProcessor:
                 if chunk_start >= 0:
                     chunk.metadata["page"] = self._get_page_for_position(chunk_start, page_ranges)
         
-        # Add tables as separate whole chunks with page info
+        # Add tables as chunked documents with page info
         for i, (table, table_start) in enumerate(zip(tables, table_positions)):
             # Find which page this table starts on
             page_num = self._get_page_for_position(table_start, page_ranges)
             
-            table_doc = Document(
-                page_content=table,
-                metadata={
-                    "source": source,
-                    "total_pages": total_pages,
-                    "content_type": "table",
-                    "table_index": i,
-                    "page": page_num
-                }
-            )
-            split_docs.append(table_doc)
+            # Chunk the table if it's too large
+            table_chunks = self._chunk_table(table)
+            
+            for chunk_idx, table_chunk in enumerate(table_chunks):
+                table_doc = Document(
+                    page_content=table_chunk,
+                    metadata={
+                        "source": source,
+                        "total_pages": total_pages,
+                        "content_type": "table",
+                        "table_index": i,
+                        "table_chunk": chunk_idx + 1,
+                        "table_total_chunks": len(table_chunks),
+                        "page": page_num
+                    }
+                )
+                split_docs.append(table_doc)
         
         return split_docs
 
@@ -210,9 +295,9 @@ class DocumentProcessor:
             try:
                 docs = self.process_file(file_path)
                 all_documents.extend(docs)
-                print(f"Processed: {os.path.basename(file_path)} ({len(docs)} chunks)")
+                print(f"[+] Processed: {os.path.basename(file_path)} ({len(docs)} chunks)")
             except Exception as e:
-                print(f"Error processing {file_path}: {e}")
+                print(f"[!] Error processing {file_path}: {e}")
 
         return all_documents
 

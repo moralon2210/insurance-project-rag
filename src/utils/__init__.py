@@ -9,5 +9,6 @@ from .pdf_parser import PDFParser
 from .text_splitter import create_text_splitter
 from .processor import DocumentProcessor
 from .embeddings import E5Embeddings
+from .tokenizer import E5Tokenizer
 
-__all__ = ["PDFParser", "create_text_splitter", "DocumentProcessor", "E5Embeddings"]
+__all__ = ["PDFParser", "create_text_splitter", "DocumentProcessor", "E5Embeddings", "E5Tokenizer"]
