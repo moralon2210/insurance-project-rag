@@ -103,7 +103,6 @@ OPENAI_API_KEY=your-api-key-here
 ### 5. Prepare documents
 
 1. Place your Hebrew policy PDFs under `data/pdfs/`.
-2. (Optional) Use the curated samples in `data/pdf_2/` for manual tests.
 
 ### 6. Run the RAG pipeline
 
